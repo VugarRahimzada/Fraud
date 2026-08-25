@@ -8,6 +8,10 @@ using Fraud.Service.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Serilog.Sinks.MSSqlServer;
 using Serilog;
+using Fraud.Core.Common;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace Fraud
 {
@@ -57,14 +61,41 @@ namespace Fraud
 
             #endregion
 
+            builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+
+            var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()!;
+
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = jwtSettings.Issuer,
+                        ValidAudience = jwtSettings.Audience,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
+                        ClockSkew = TimeSpan.Zero
+                    };
+                });
+
+            builder.Services.AddAuthorization();
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<ICardService, CardService>();
             builder.Services.AddScoped<ICardRepository, CardRepository>();
+            builder.Services.AddScoped<IAuthService, AuthService>();
 
             builder.Services.AddApplicationServices();
 
             builder.Services.AddControllers();
             builder.Services.AddOpenApi();
+
 
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(
@@ -74,6 +105,7 @@ namespace Fraud
             {
                 cfg.AddProfile<Fraud.Service.Mapping.CommonMappingProfile>();
                 cfg.AddProfile<Fraud.Service.Mapping.CardMappingProfile>();
+                cfg.AddProfile<Fraud.Service.Mapping.UserMappingProfile>();
             });
 
             var app = builder.Build();
@@ -86,7 +118,7 @@ namespace Fraud
             }
 
             app.UseHttpsRedirection();
-
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapControllers();

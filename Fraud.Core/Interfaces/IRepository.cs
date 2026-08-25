@@ -16,7 +16,7 @@ namespace Fraud.Core.Interfaces
 
         Task AddAsync(T entity, CancellationToken cancellationToken = default);
         void Update(T entity);
-        void Delete(T entity); // soft delete flag qoyur, save etmir
+        void Delete(T entity);
         Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }

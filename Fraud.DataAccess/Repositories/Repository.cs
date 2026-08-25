@@ -52,9 +52,6 @@ namespace Fraud.DataAccess.Repositories
             };
         }
 
-        // Dinamik sort: SortBy göndərilibsə həmin sahəyə görə,
-        // göndərilməyibsə default olaraq Id-yə görə sıralayır
-        // (Skip/Take-dən əvvəl həmişə OrderBy təmin olunur — SQL Server xəbərdarlığı üçün).
         private static IQueryable<T> ApplySorting(IQueryable<T> query, PaginationParams paginationParams)
         {
             if (string.IsNullOrWhiteSpace(paginationParams.SortBy))

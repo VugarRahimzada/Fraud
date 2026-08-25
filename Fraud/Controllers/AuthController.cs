@@ -1,42 +1,65 @@
-﻿//using Fraud.DTO.DTOs;
-//using Fraud.Service.Interfaces;
-//using Microsoft.AspNetCore.Mvc;
+﻿using Fraud.Core.Common;
+using Fraud.Core.Entities;
+using Fraud.Core.Exceptions;
+using Fraud.DTO.Auth;
+using Fraud.DTO.Card;
+using Fraud.DTO.DTOs;
+using Fraud.Service.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using System.Threading;
 
-//namespace Fraud.Controllers
-//{
-//    [Route("api/[controller]")]
-//    [ApiController]
-//    public class AuthController : ControllerBase
-//    {
-//        private readonly IUserService _userService;
+namespace Fraud.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class AuthController : ControllerBase
+    {
+        private readonly IAuthService _authService;
 
-//        public AuthController(IUserService userService)
-//        {
-//            _userService = userService;
-//        }
+        public AuthController(IAuthService authService)
+        {
+            _authService = authService;
+        }
 
-//        [HttpPost("register")]
-//        public async Task<IActionResult> Register(RegisterDto dto)
-//        {
-//            var user = await _userService.CreateAsync(dto);
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequestDto request, CancellationToken cancellationToken)
+        {
+            var result = await _authService.RegisterAsync(request, cancellationToken);
 
-//            return Ok(user);
-//        }
+            return Ok(ApiResponse<RegisterResponseDto>.SuccessResponse(result, "Qeydiyyat uğurludur"));
 
-//        [HttpPost("login")]
-//        public IActionResult Login(LoginDto dto)
-//        {
-//            // Login məntiqini növbəti mərhələdə yazacağıq
+        }
 
-//            return Ok(dto);
-//        }
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
+        {
+            var result = await _authService.LoginAsync(request, cancellationToken);
+            return Ok(ApiResponse<LoginResponseDto>.SuccessResponse(result, "Giriş uğurludur."));
+        }
 
-//        [HttpGet("getuser")]
-//        public async Task<IActionResult> GetUsers()
-//        {
-//            var users = await _userService.GetAllAsync();
+        [Authorize]
+        [HttpGet("me")]
+        public async Task<IActionResult> Me()
+        {
+            var userId = int.Parse(User.FindFirstValue("userId")!);
+            var user = await _authService.GetByIdAsync(userId);
 
-//            return Ok(users);
-//        }
-//    }
-//}
+            if (user is null)
+                throw new NotFoundException("İstifadəçi tapılmadı.");
+
+            var dto = new MeResponseDto
+            {
+                Id = user.Id,
+                UserCode = user.UserCode,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Email = user.Email,
+                Role = user.Role
+            };
+
+            return Ok(ApiResponse<MeResponseDto>.SuccessResponse(dto));
+        }
+    }
+}

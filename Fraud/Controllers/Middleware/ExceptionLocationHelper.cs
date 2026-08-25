@@ -1,7 +1,10 @@
-﻿using System.Diagnostics;
+﻿using Fraud.Core.Exceptions;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 
 namespace Fraud.Controllers.Middleware
-{
+{ 
     public static class ExceptionLocationHelper
     {
         public static string GetSourceLocation(Exception ex)
@@ -21,22 +24,21 @@ namespace Fraud.Controllers.Middleware
                 : $"{typeName}.{methodName}";
         }
 
-        // İstifadəçiyə/log-a rahat oxunan sadə mesaj
         public static string Simplify(Exception ex)
         {
             return ex switch
             {
-                Microsoft.EntityFrameworkCore.DbUpdateException dbEx
-                    when dbEx.InnerException is Microsoft.Data.SqlClient.SqlException sqlEx
+                DbUpdateException dbEx
+                    when dbEx.InnerException is SqlException sqlEx
                     => $"DB error [{sqlEx.Number}]: {sqlEx.Message}",
 
-                Microsoft.Data.SqlClient.SqlException sqlEx
+                SqlException sqlEx
                     => $"DB error [{sqlEx.Number}]: {sqlEx.Message}",
 
-                Fraud.Core.Exceptions.ValidationException
+                ValidationException
                     => "Validation Error",
 
-                Fraud.Core.Exceptions.NotFoundException
+                NotFoundException
                     => ex.Message,
 
                 _ => ex.Message
