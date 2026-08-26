@@ -142,7 +142,7 @@ namespace Fraud.Service
         {
             var user = await _userRepository.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException(nameof(User), id);
 
-            return _mapper.Map<MeResponseDto>(user);
+            return _mapper.Map<MeResponseDto>(user);    
         }
     }
 }

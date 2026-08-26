@@ -56,7 +56,8 @@ namespace Fraud.Controllers
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 Email = user.Email,
-                Role = user.Role
+                Role = user.Role,
+                Cards = user.Cards
             };
 
             return Ok(ApiResponse<MeResponseDto>.SuccessResponse(dto));

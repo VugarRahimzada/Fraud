@@ -34,7 +34,7 @@ namespace Fraud.DataAccess.Repositories
 
         public async Task<User?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         {
-            return await _context.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+            return await _context.Users.Include(u => u.Cards).FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         }
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
