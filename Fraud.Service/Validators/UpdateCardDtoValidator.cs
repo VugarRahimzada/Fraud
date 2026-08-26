@@ -17,9 +17,6 @@ namespace Fraud.Service.Validators
                 .NotEmpty().WithMessage("Name is required")
                 .MaximumLength(150).WithMessage("Name must not exceed 150 characters");
 
-            RuleFor(x => x.Code)
-                .GreaterThan(0).WithMessage("Code must be a valid positive number");
-
             RuleFor(x => x.ValidDate)
                 .NotEqual(default(DateTime)).WithMessage("ValidDate is required");
 

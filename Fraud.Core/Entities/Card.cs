@@ -9,7 +9,7 @@ namespace Fraud.Core.Entities
     public class Card : BaseEntity
     {
         public string Name { get; set; } = string.Empty;
-        public int Code { get; set; }
+        public string Code { get; set; }
 
         public DateTime ValidDate { get; set; }
 

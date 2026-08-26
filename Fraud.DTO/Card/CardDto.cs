@@ -10,7 +10,7 @@ namespace Fraud.DTO.Card
     {
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
-        public int Code { get; set; }
+        public string Code { get; set; }
         public DateTime ValidDate { get; set; }
         public byte TransferLimit { get; set; }
         public int UserId { get; set; }

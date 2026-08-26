@@ -13,7 +13,7 @@ namespace Fraud.DataAccess.Repositories
     {
         public CardRepository(AppDbContext context) : base(context) { }
 
-        public async Task<bool> CodeExistsAsync(int code, int? excludeId = null, CancellationToken cancellationToken = default)
+        public async Task<bool> CodeExistsAsync(string code, int? excludeId = null, CancellationToken cancellationToken = default)
         {
             return await _dbSet.AnyAsync(
                 x => x.Code == code && (excludeId == null || x.Id != excludeId),

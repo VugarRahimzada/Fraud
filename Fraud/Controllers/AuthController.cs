@@ -3,7 +3,6 @@ using Fraud.Core.Entities;
 using Fraud.Core.Exceptions;
 using Fraud.DTO.Auth;
 using Fraud.DTO.Card;
-using Fraud.DTO.DTOs;
 using Fraud.Service.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

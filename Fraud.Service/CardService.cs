@@ -4,11 +4,13 @@ using Fraud.Core.Common;
 using Fraud.Core.Entities;
 using Fraud.Core.Exceptions;
 using Fraud.Core.Interfaces;
+using Fraud.DataAccess.Repositories;
 using Fraud.DTO.Card;
 using Fraud.Service.Interfaces;
 using Microsoft.AspNetCore.Http;
 using System.Linq.Expressions;
 using System.Security.Claims;
+using System.Threading;
 
 namespace Fraud.Service
 {
@@ -74,12 +76,10 @@ namespace Fraud.Service
             if (!validationResult.IsValid)
                 throw new Fraud.Core.Exceptions.ValidationException(validationResult.Errors.Select(e => e.ErrorMessage));
 
-            if (await _cardRepository.CodeExistsAsync(dto.Code, cancellationToken: cancellationToken))
-                throw new ConflictException($"A card with code '{dto.Code}' already exists.");
-
             var card = _mapper.Map<Card>(dto);
 
             card.UserId = userId;
+            card.Code = await GenerateUniqueCardCodeAsync();
 
             await _cardRepository.AddAsync(card, cancellationToken);
             await _cardRepository.SaveChangesAsync(cancellationToken);
@@ -98,10 +98,6 @@ namespace Fraud.Service
 
             var card = await _cardRepository.GetByIdAsync(id, cancellationToken)
                 ?? throw new NotFoundException(nameof(Card), id);
-
-            if (await _cardRepository.CodeExistsAsync(dto.Code, id, cancellationToken))
-                throw new ConflictException($"A card with code '{dto.Code}' already exists.");
-
 
             card.UserId = userId;
 
@@ -138,6 +134,19 @@ namespace Fraud.Service
                 throw new UnauthorizedAccessException("Invalid user ID.");
 
             return id;
+        }
+
+        private async Task<string> GenerateUniqueCardCodeAsync()
+        {
+            string code;
+            bool exists;
+            do
+            {
+                code = CardCodeGenerator.Generate();
+                exists = await _cardRepository.CodeExistsAsync(code, cancellationToken: default);
+            } while (exists);
+
+            return code;
         }
 
     }

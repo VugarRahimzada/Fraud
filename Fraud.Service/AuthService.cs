@@ -4,10 +4,7 @@ using Fraud.Core.Common;
 using Fraud.Core.Entities;
 using Fraud.Core.Exceptions;
 using Fraud.Core.Interfaces;
-using Fraud.DataAccess.Repositories;
 using Fraud.DTO.Auth;
-using Fraud.DTO.Card;
-using Fraud.DTO.DTOs;
 using Fraud.Service.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
@@ -15,7 +12,6 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using System.Threading;
 
 
 namespace Fraud.Service

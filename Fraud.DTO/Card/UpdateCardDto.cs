@@ -9,7 +9,6 @@ namespace Fraud.DTO.Card
     public class UpdateCardDto
     {
         public string Name { get; set; } = string.Empty;
-        public int Code { get; set; }
         public DateTime ValidDate { get; set; }
         public byte TransferLimit { get; set; }
     }

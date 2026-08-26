@@ -9,7 +9,7 @@ namespace Fraud.Core.Interfaces
 {
     public interface ICardRepository : IRepository<Card>
     {
-        Task<bool> CodeExistsAsync(int code, int? excludeId = null, CancellationToken cancellationToken = default);
+        Task<bool> CodeExistsAsync(string code, int? excludeId = null, CancellationToken cancellationToken = default);
 
     }
 }
