@@ -13,5 +13,7 @@ namespace Fraud.DTO.Card
         public int Code { get; set; }
         public DateTime ValidDate { get; set; }
         public byte TransferLimit { get; set; }
+        public int UserId { get; set; }
+
     }
 }

@@ -1,10 +1,13 @@
 ﻿using Fraud.Core.Common;
 using Fraud.DTO.Card;
 using Fraud.Service.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fraud.Controllers.Controllers
 {
+
+    [Authorize]
     [Route("api/cards")]
     [ApiController]
     public class CardController : ControllerBase

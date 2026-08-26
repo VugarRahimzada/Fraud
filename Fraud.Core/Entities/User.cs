@@ -14,5 +14,7 @@ namespace Fraud.Core.Entities
         public string Email { get; set; }
         public string PasswordHash { get; set; } = string.Empty;
         public string Role { get; set; } = "User";
+        public ICollection<Card> Cards { get; set; } = new List<Card>();
+
     }
 }

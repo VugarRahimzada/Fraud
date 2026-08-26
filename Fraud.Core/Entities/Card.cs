@@ -15,5 +15,9 @@ namespace Fraud.Core.Entities
 
         public byte TransferLimit { get; set; }
 
+        public int UserId { get; set; }
+
+        public User User { get; set; } = null!;
+
     }
 }

@@ -6,7 +6,9 @@ using Fraud.Core.Exceptions;
 using Fraud.Core.Interfaces;
 using Fraud.DTO.Card;
 using Fraud.Service.Interfaces;
+using Microsoft.AspNetCore.Http;
 using System.Linq.Expressions;
+using System.Security.Claims;
 
 namespace Fraud.Service
 {
@@ -16,26 +18,34 @@ namespace Fraud.Service
         private readonly IMapper _mapper;
         private readonly IValidator<CreateCardDto> _createValidator;
         private readonly IValidator<UpdateCardDto> _updateValidator;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+
 
         public CardService(
             ICardRepository cardRepository,
             IMapper mapper,
             IValidator<CreateCardDto> createValidator,
-            IValidator<UpdateCardDto> updateValidator)
+            IValidator<UpdateCardDto> updateValidator,
+            IHttpContextAccessor httpContextAccessor)
         {
             _cardRepository = cardRepository;
             _mapper = mapper;
             _createValidator = createValidator;
             _updateValidator = updateValidator;
+            _httpContextAccessor = httpContextAccessor;
+
         }
 
         public async Task<PagedResult<CardDto>> GetAllAsync(PaginationParams paginationParams, CancellationToken cancellationToken = default)
         {
+
+            var userId = GetCurrentUserId();
+
             Expression<Func<Card, bool>>? filter = null;
             if (!string.IsNullOrWhiteSpace(paginationParams.SearchTerm))
             {
                 var term = paginationParams.SearchTerm.Trim();
-                filter = x => x.Name.Contains(term);
+                filter = x => x.UserId == userId && x.Name.Contains(term);
             }
 
             var pagedCards = await _cardRepository.GetPagedAsync(paginationParams, filter, cancellationToken);
@@ -44,14 +54,22 @@ namespace Fraud.Service
 
         public async Task<CardDto> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         {
-            var card = await _cardRepository.GetByIdAsync(id, cancellationToken)
-                ?? throw new NotFoundException(nameof(Card), id);
+
+            var userId = GetCurrentUserId();
+
+            var card = await _cardRepository.GetByIdAsync(id, cancellationToken);
+
+            if (card is null || card.UserId != userId)
+                throw new NotFoundException(nameof(Card), id);
 
             return _mapper.Map<CardDto>(card);
         }
 
         public async Task<CardDto> CreateAsync(CreateCardDto dto, CancellationToken cancellationToken = default)
         {
+
+            var userId = GetCurrentUserId();
+
             var validationResult = await _createValidator.ValidateAsync(dto, cancellationToken);
             if (!validationResult.IsValid)
                 throw new Fraud.Core.Exceptions.ValidationException(validationResult.Errors.Select(e => e.ErrorMessage));
@@ -60,6 +78,9 @@ namespace Fraud.Service
                 throw new ConflictException($"A card with code '{dto.Code}' already exists.");
 
             var card = _mapper.Map<Card>(dto);
+
+            card.UserId = userId;
+
             await _cardRepository.AddAsync(card, cancellationToken);
             await _cardRepository.SaveChangesAsync(cancellationToken);
 
@@ -68,6 +89,9 @@ namespace Fraud.Service
 
         public async Task<CardDto> UpdateAsync(int id, UpdateCardDto dto, CancellationToken cancellationToken = default)
         {
+
+            var userId = GetCurrentUserId();
+
             var validationResult = await _updateValidator.ValidateAsync(dto, cancellationToken);
             if (!validationResult.IsValid)
                 throw new Fraud.Core.Exceptions.ValidationException(validationResult.Errors.Select(e => e.ErrorMessage));
@@ -78,6 +102,9 @@ namespace Fraud.Service
             if (await _cardRepository.CodeExistsAsync(dto.Code, id, cancellationToken))
                 throw new ConflictException($"A card with code '{dto.Code}' already exists.");
 
+
+            card.UserId = userId;
+
             _mapper.Map(dto, card);
             _cardRepository.Update(card);
             await _cardRepository.SaveChangesAsync(cancellationToken);
@@ -87,11 +114,31 @@ namespace Fraud.Service
 
         public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
         {
-            var card = await _cardRepository.GetByIdAsync(id, cancellationToken)
-                ?? throw new NotFoundException(nameof(Card), id);
+
+            var userId = GetCurrentUserId();
+
+            var card = await _cardRepository.GetByIdAsync(id, cancellationToken);
+              if (card is null || card.UserId != userId)
+                throw new NotFoundException(nameof(Card), id);
 
             _cardRepository.Delete(card);
             await _cardRepository.SaveChangesAsync(cancellationToken);
         }
+
+        private int GetCurrentUserId()
+        {
+            var userId = _httpContextAccessor.HttpContext?
+                .User
+                .FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrEmpty(userId))
+                throw new UnauthorizedAccessException("User is not authenticated.");
+
+            if (!int.TryParse(userId, out var id))
+                throw new UnauthorizedAccessException("Invalid user ID.");
+
+            return id;
+        }
+
     }
 }

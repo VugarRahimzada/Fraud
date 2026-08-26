@@ -92,6 +92,7 @@ namespace Fraud
             builder.Services.AddScoped<IAuthService, AuthService>();
 
             builder.Services.AddApplicationServices();
+            builder.Services.AddHttpContextAccessor();
 
             builder.Services.AddControllers();
             builder.Services.AddOpenApi();
