@@ -5,7 +5,7 @@ using System.Linq.Expressions;
 
 namespace Fraud.Core.Interfaces
 {
-    public interface IRepository<T> where T : BaseEntity
+    public interface IRepository<T> where T : BaseEntity 
     {
         Task<T?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 

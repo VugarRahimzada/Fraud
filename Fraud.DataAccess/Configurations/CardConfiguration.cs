@@ -28,6 +28,10 @@ namespace Fraud.DataAccess.Configurations
             builder.Property(x => x.TransferLimit)
                 .HasDefaultValue((byte)0);
 
+            builder.Property(x => x.Balance)
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue((byte)0);
+
             builder.HasIndex(x => x.IsDelete);
         }
     }

@@ -10,13 +10,10 @@ namespace Fraud.Core.Entities
     {
         public string Name { get; set; } = string.Empty;
         public string Code { get; set; }
-
         public DateTime ValidDate { get; set; }
-
         public byte TransferLimit { get; set; }
-
+        public double Balance { get; set; }
         public int UserId { get; set; }
-
         public User User { get; set; } = null!;
 
     }
