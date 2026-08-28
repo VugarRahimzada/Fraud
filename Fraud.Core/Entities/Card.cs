@@ -12,7 +12,7 @@ namespace Fraud.Core.Entities
         public string Code { get; set; }
         public DateTime ValidDate { get; set; }
         public byte TransferLimit { get; set; }
-        public double Balance { get; set; }
+        public decimal Balance { get; set; }
         public int UserId { get; set; }
         public User User { get; set; } = null!;
 

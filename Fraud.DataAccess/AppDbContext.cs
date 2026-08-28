@@ -13,6 +13,8 @@ namespace Fraud.DataAccess
         public DbSet<User> Users => Set<User>();
 
         public DbSet<Card> Cards => Set<Card>();
+        public DbSet<Transaction> Transactions => Set<Transaction>();
+        public DbSet<FraudCase> FraudCases => Set<FraudCase>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -11,5 +11,7 @@ namespace Fraud.Core.Interfaces
     {
         Task<bool> CodeExistsAsync(string code, int? excludeId = null, CancellationToken cancellationToken = default);
 
+        Task<Card?> GetCardForUpdateAsync(int cardId, CancellationToken cancellationToken = default);
+
     }
 }

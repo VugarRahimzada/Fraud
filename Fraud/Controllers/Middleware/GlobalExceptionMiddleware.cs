@@ -44,6 +44,10 @@ namespace Fraud.Controllers.Middleware
                     HttpStatusCode.BadRequest,
                     ApiResponse<object?>.FailResponse("Validation failed", validationEx.Errors.ToList())),
 
+                Fraud.Core.Exceptions.UnauthorizedAccessException unauthorizedEx => (
+                    HttpStatusCode.Forbidden,
+                    ApiResponse<object?>.FailResponse(unauthorizedEx.Message)),
+
                 ConflictException conflictEx => (
                     HttpStatusCode.Conflict,
                     ApiResponse<object?>.FailResponse(conflictEx.Message)),

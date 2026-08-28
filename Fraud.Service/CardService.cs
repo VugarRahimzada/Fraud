@@ -6,6 +6,7 @@ using Fraud.Core.Exceptions;
 using Fraud.Core.Interfaces;
 using Fraud.DataAccess.Repositories;
 using Fraud.DTO.Card;
+using Fraud.DTO.Transaction;
 using Fraud.Service.Interfaces;
 using Microsoft.AspNetCore.Http;
 using System.Linq.Expressions;
@@ -30,27 +31,30 @@ namespace Fraud.Service
             IValidator<UpdateCardDto> updateValidator,
             IHttpContextAccessor httpContextAccessor)
         {
-            _cardRepository = cardRepository;
-            _mapper = mapper;
-            _createValidator = createValidator;
-            _updateValidator = updateValidator;
+            _cardRepository      = cardRepository;
+            _mapper              = mapper;
+            _createValidator     = createValidator;
+            _updateValidator     = updateValidator;
             _httpContextAccessor = httpContextAccessor;
 
         }
 
-        public async Task<PagedResult<CardDto>> GetAllAsync(PaginationParams paginationParams, CancellationToken cancellationToken = default)
+        public async Task<PagedResult<CardDto>> GetAllAsync(
+            PaginationParams paginationParams,
+            CancellationToken cancellationToken = default)
         {
-
             var userId = GetCurrentUserId();
+            var term = paginationParams.SearchTerm?.Trim();
 
-            Expression<Func<Card, bool>>? filter = null;
-            if (!string.IsNullOrWhiteSpace(paginationParams.SearchTerm))
-            {
-                var term = paginationParams.SearchTerm.Trim();
-                filter = x => x.UserId == userId && x.Name.Contains(term);
-            }
+            Expression<Func<Card, bool>> filter = x =>
+                x.UserId == userId &&
+                (string.IsNullOrWhiteSpace(term) || x.Name.Contains(term));
 
-            var pagedCards = await _cardRepository.GetPagedAsync(paginationParams, filter, cancellationToken);
+            var pagedCards = await _cardRepository.GetPagedAsync(
+                paginationParams,
+                filter,
+                cancellationToken);
+
             return _mapper.Map<PagedResult<CardDto>>(pagedCards);
         }
 
@@ -128,10 +132,10 @@ namespace Fraud.Service
                 .FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (string.IsNullOrEmpty(userId))
-                throw new UnauthorizedAccessException("User is not authenticated.");
+                throw new Core.Exceptions.UnauthorizedAccessException("User is not authenticated.");
 
             if (!int.TryParse(userId, out var id))
-                throw new UnauthorizedAccessException("Invalid user ID.");
+                throw new Core.Exceptions.UnauthorizedAccessException("Invalid user ID.");
 
             return id;
         }

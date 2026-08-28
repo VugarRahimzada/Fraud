@@ -1,6 +1,7 @@
 ﻿using Fraud.Core.Common;
 using Fraud.Core.Entities;
 using Fraud.DTO.Card;
+using Fraud.DTO.Transaction;
 
 namespace Fraud.Service.Interfaces
 {

@@ -12,6 +12,8 @@ using Fraud.Core.Common;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Fraud.Core.Entities;
+using Fraud.Service.Services;
 
 namespace Fraud
 {
@@ -90,6 +92,9 @@ namespace Fraud
             builder.Services.AddScoped<ICardService, CardService>();
             builder.Services.AddScoped<ICardRepository, CardRepository>();
             builder.Services.AddScoped<IAuthService, AuthService>();
+            builder.Services.AddScoped<IFraudDetectionEngine, AutoApproveFraudEngine>();
+            builder.Services.AddScoped<ITransactionRepository,TranscationRepoistory>();
+            builder.Services.AddScoped<ITransactionService, TransactionService>();
 
             builder.Services.AddApplicationServices();
             builder.Services.AddHttpContextAccessor();
@@ -107,6 +112,7 @@ namespace Fraud
                 cfg.AddProfile<Fraud.Service.Mapping.CommonMappingProfile>();
                 cfg.AddProfile<Fraud.Service.Mapping.CardMappingProfile>();
                 cfg.AddProfile<Fraud.Service.Mapping.UserMappingProfile>();
+                cfg.AddProfile<Fraud.Service.Mapping.TransactionMappingProfile>();
             });
 
             var app = builder.Build();

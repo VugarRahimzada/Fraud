@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Fraud.Core\Fraud.Core.csproj" />
+    <ProjectReference Include="..\Fraud.DTO\Fraud.DTO.csproj" />
   </ItemGroup>
 
 </Project>

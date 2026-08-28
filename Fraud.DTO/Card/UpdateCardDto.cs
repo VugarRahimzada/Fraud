@@ -10,6 +10,7 @@ namespace Fraud.DTO.Card
     {
         public string Name { get; set; } = string.Empty;
         public DateTime ValidDate { get; set; }
+        public decimal Balance { get; set; }
         public byte TransferLimit { get; set; }
     }
 }
