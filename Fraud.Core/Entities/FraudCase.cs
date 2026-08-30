@@ -14,6 +14,9 @@ namespace Fraud.Core.Entities
         public FraudCaseStatus Status { get; set; }
 
         public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
+
+        public ICollection<FraudCaseRuleResult> RuleResults { get; set; } = new List<FraudCaseRuleResult>();
         public DateTime? ResolvedAt { get; set; }
+
     }
 }

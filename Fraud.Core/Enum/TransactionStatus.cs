@@ -9,8 +9,10 @@ namespace Fraud.Core.Enum
     public enum TransactionStatus
     {
         Pending = 0,
-        Approved = 1,
-        Blocked = 2,
-        Rejected = 3
+        UnderReview = 1,
+        Approved = 2,
+        Completed = 3,
+        Blocked = 4,
+        Rejected = 5
     }
 }

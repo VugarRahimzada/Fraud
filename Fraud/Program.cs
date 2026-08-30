@@ -1,19 +1,23 @@
 ﻿using Fraud.Controllers.Extensions;
 using Fraud.Controllers.Middleware;
+using Fraud.Core.Common;
+using Fraud.Core.FraudDetection.Abstractions;
+using Fraud.Core.FraudDetection.Options;
+using Fraud.Core.FraudDetection.Rules;
 using Fraud.Core.Interfaces;
 using Fraud.DataAccess;
 using Fraud.DataAccess.Repositories;
 using Fraud.Service;
 using Fraud.Service.Interfaces;
-using Microsoft.EntityFrameworkCore;
-using Serilog.Sinks.MSSqlServer;
-using Serilog;
-using Fraud.Core.Common;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Fraud.Core.Entities;
 using Fraud.Service.Services;
+using Fraud.Service.Services.FraudDetection;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using Serilog;
+using Serilog.Sinks.MSSqlServer;
+using System.Text;
 
 namespace Fraud
 {
@@ -23,39 +27,62 @@ namespace Fraud
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+            var connectionString =
+                builder.Configuration.GetConnectionString("DefaultConnection")!;
 
             #region Serilog Configuration
 
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Information()
-                .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
-                .MinimumLevel.Override("Microsoft.EntityFrameworkCore", Serilog.Events.LogEventLevel.Warning)
+                .MinimumLevel.Override(
+                    "Microsoft",
+                    Serilog.Events.LogEventLevel.Warning)
+                .MinimumLevel.Override(
+                    "Microsoft.EntityFrameworkCore",
+                    Serilog.Events.LogEventLevel.Warning)
                 .Enrich.FromLogContext()
-                // 1) TXT fayla yazır — hər gün yeni fayl, 30 gün saxlanılır
+
                 .WriteTo.File(
                     path: "Logs/log-.txt",
                     rollingInterval: RollingInterval.Day,
                     retainedFileCountLimit: 30,
-                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}{NewLine}")
-                // 2) SQL Server-ə yazır — cədvəl avtomatik yaranır
+                    outputTemplate:
+                        "{Timestamp:yyyy-MM-dd HH:mm:ss} " +
+                        "[{Level:u3}] {Message:lj}{NewLine}" +
+                        "{Exception}{NewLine}")
+
                 .WriteTo.MSSqlServer(
                     connectionString: connectionString,
                     sinkOptions: new MSSqlServerSinkOptions
                     {
                         TableName = "ErrorLogs",
                         AutoCreateSqlTable = true,
-                        BatchPostingLimit = 1 // xəta baş verən kimi dərhal yazılsın
+                        BatchPostingLimit = 1
                     },
                     columnOptions: new ColumnOptions
                     {
-                        AdditionalColumns = new System.Collections.ObjectModel.Collection<SqlColumn>
-                        {
-                            new SqlColumn("SourceLocation", System.Data.SqlDbType.NVarChar, dataLength: 500),
-                            new SqlColumn("SqlQuery", System.Data.SqlDbType.NVarChar, dataLength: -1), // MAX
-                            new SqlColumn("RequestPath", System.Data.SqlDbType.NVarChar, dataLength: 300),
-                            new SqlColumn("StatusCode", System.Data.SqlDbType.Int)
-                        }
+                        AdditionalColumns =
+                            new System.Collections.ObjectModel.Collection<SqlColumn>
+                            {
+                                new SqlColumn(
+                                    "SourceLocation",
+                                    System.Data.SqlDbType.NVarChar,
+                                    dataLength: 500),
+
+                                new SqlColumn(
+                                    "SqlQuery",
+                                    System.Data.SqlDbType.NVarChar,
+                                    dataLength: -1),
+
+                                new SqlColumn(
+                                    "RequestPath",
+                                    System.Data.SqlDbType.NVarChar,
+                                    dataLength: 300),
+
+                                new SqlColumn(
+                                    "StatusCode",
+                                    System.Data.SqlDbType.Int)
+                            }
                     })
                 .CreateLogger();
 
@@ -63,59 +90,178 @@ namespace Fraud
 
             #endregion
 
-            builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+            #region JWT
 
-            var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()!;
+            builder.Services.Configure<JwtSettings>(
+                builder.Configuration.GetSection("Jwt"));
 
-            builder.Services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
+            var jwtSettings =
+                builder.Configuration
+                    .GetSection("Jwt")
+                    .Get<JwtSettings>()!;
+
+            builder.Services
+                .AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme =
+                        JwtBearerDefaults.AuthenticationScheme;
+
+                    options.DefaultChallengeScheme =
+                        JwtBearerDefaults.AuthenticationScheme;
+                })
                 .AddJwtBearer(options =>
                 {
-                    options.TokenValidationParameters = new TokenValidationParameters
-                    {
-                        ValidateIssuer = true,
-                        ValidateAudience = true,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        ValidIssuer = jwtSettings.Issuer,
-                        ValidAudience = jwtSettings.Audience,
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
-                        ClockSkew = TimeSpan.Zero
-                    };
+                    options.TokenValidationParameters =
+                        new TokenValidationParameters
+                        {
+                            ValidateIssuer = true,
+                            ValidateAudience = true,
+                            ValidateLifetime = true,
+                            ValidateIssuerSigningKey = true,
+
+                            ValidIssuer = jwtSettings.Issuer,
+                            ValidAudience = jwtSettings.Audience,
+
+                            IssuerSigningKey =
+                                new SymmetricSecurityKey(
+                                    Encoding.UTF8.GetBytes(
+                                        jwtSettings.Key)),
+
+                            ClockSkew = TimeSpan.Zero
+                        };
                 });
 
             builder.Services.AddAuthorization();
+
+            #endregion
+
+            #region Database
+
+            builder.Services.AddDbContext<AppDbContext>(options =>options.UseSqlServer(connectionString));
+
+            #endregion
+
+            #region Repositories
+
             builder.Services.AddScoped<IUserRepository, UserRepository>();
-            builder.Services.AddScoped<ICardService, CardService>();
             builder.Services.AddScoped<ICardRepository, CardRepository>();
+            builder.Services.AddScoped<
+                ITransactionRepository,
+                TranscationRepoistory>();
+
+            #endregion
+
+            #region Services
+
+            builder.Services.AddScoped<ICardService, CardService>();
             builder.Services.AddScoped<IAuthService, AuthService>();
-            builder.Services.AddScoped<IFraudDetectionEngine, AutoApproveFraudEngine>();
-            builder.Services.AddScoped<ITransactionRepository,TranscationRepoistory>();
-            builder.Services.AddScoped<ITransactionService, TransactionService>();
+            builder.Services.AddScoped<
+                ITransactionService,
+                TransactionService>();
+
+            #endregion
+
+            #region Fraud Detection Configuration
+
+            builder.Services
+                .AddOptions<FraudDetectionOptions>()
+                .Bind(
+                    builder.Configuration.GetSection(
+                        FraudDetectionOptions.SectionName))
+                .ValidateOnStart();
+
+            builder.Services.AddSingleton<
+                IValidateOptions<FraudDetectionOptions>,
+                FraudDetectionOptionsValidator>();
+
+            #endregion
+
+            #region Fraud Detection Engine
+
+            builder.Services.AddScoped<
+                IRiskSeverityClassifier,
+                RiskSeverityClassifier>();
+
+            builder.Services.AddScoped<IFraudDetectionEngine,FraudDetectionEngine>();
+
+            builder.Services.AddScoped<
+                IFraudCaseFactory,
+                FraudCaseFactory>();
+
+            #endregion
+
+            #region Fraud Rules
+
+            builder.Services.AddScoped<IFraudRule, LargeAmountRule>();
+
+            builder.Services.AddScoped<
+                IFraudRule,
+                AmountDeviationRule>();
+
+            builder.Services.AddScoped<
+                IFraudRule,
+                VelocityRule>();
+
+            builder.Services.AddScoped<
+                IFraudRule,
+                DailyAmountRule>();
+
+            builder.Services.AddScoped<
+                IFraudRule,
+                NewRecipientRule>();
+
+            builder.Services.AddScoped<
+                IFraudRule,
+                MultipleRecipientsRule>();
+
+            builder.Services.AddScoped<
+                IFraudRule,
+                BehavioralAnomalyRule>();
+
+            builder.Services.AddScoped<
+                IFraudRule,
+                FailedTransactionPatternRule>();
+
+            #endregion
+
+            #region Application Services
 
             builder.Services.AddApplicationServices();
+
             builder.Services.AddHttpContextAccessor();
 
+            #endregion
+
+            #region MVC / API
+
             builder.Services.AddControllers();
+
             builder.Services.AddOpenApi();
 
+            #endregion
 
-            builder.Services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlServer(
-                    builder.Configuration.GetConnectionString("DefaultConnection")
-                ));
+            #region AutoMapper
+
             builder.Services.AddAutoMapper(cfg =>
             {
-                cfg.AddProfile<Fraud.Service.Mapping.CommonMappingProfile>();
-                cfg.AddProfile<Fraud.Service.Mapping.CardMappingProfile>();
-                cfg.AddProfile<Fraud.Service.Mapping.UserMappingProfile>();
-                cfg.AddProfile<Fraud.Service.Mapping.TransactionMappingProfile>();
+                cfg.AddProfile<
+                    Fraud.Service.Mapping.CommonMappingProfile>();
+
+                cfg.AddProfile<
+                    Fraud.Service.Mapping.CardMappingProfile>();
+
+                cfg.AddProfile<
+                    Fraud.Service.Mapping.UserMappingProfile>();
+
+                cfg.AddProfile<
+                    Fraud.Service.Mapping.TransactionMappingProfile>();
             });
 
+            #endregion
+
             var app = builder.Build();
+
+            #region Middleware
 
             app.UseMiddleware<GlobalExceptionMiddleware>();
 
@@ -127,6 +273,8 @@ namespace Fraud
             app.UseHttpsRedirection();
             app.UseAuthentication();
             app.UseAuthorization();
+
+            #endregion
 
             app.MapControllers();
 

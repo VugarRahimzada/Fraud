@@ -3,6 +3,7 @@ using FluentValidation;
 using Fraud.Core.Entities;
 using Fraud.Core.Enum;
 using Fraud.Core.Exceptions;
+using Fraud.Core.FraudDetection.Abstractions;
 using Fraud.Core.Interfaces;
 using Fraud.DataAccess.Repositories;
 using Fraud.DTO.Auth;
@@ -24,62 +25,76 @@ namespace Fraud.Service.Services
     {
         private readonly ITransactionRepository _transationsRepository;
         private readonly ICardRepository _cardRepository;
-        private readonly IFraudDetectionEngine _fraudEngine;
-        private readonly IMapper _mapper;
         private readonly IValidator<CreateTransactionDto> _createValidator;
+        private readonly IMapper _mapper;
+        private readonly IFraudDetectionEngine _fraudEngine;
+        private readonly IFraudCaseFactory _fraudCaseFactory;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public TransactionService(ITransactionRepository transationsRepository, 
-                                  IMapper mapper, 
-                                  IValidator<CreateTransactionDto> createValidator, 
-                                  ICardRepository cardRepository,
-                                  IHttpContextAccessor httpContextAccessor,
-                                  IFraudDetectionEngine fraudEngine
-            )
+
+        public TransactionService(
+            ITransactionRepository transationsRepository,
+            ICardRepository cardRepository,
+            IValidator<CreateTransactionDto> createValidator,
+            IMapper mapper,
+            IFraudDetectionEngine fraudEngine,
+            IHttpContextAccessor httpContextAccessor,
+            IFraudCaseFactory fraudCaseFactory)
         {
             _transationsRepository = transationsRepository;
-            _mapper                = mapper;
-            _createValidator       = createValidator;
             _cardRepository        = cardRepository;
+            _createValidator       = createValidator;
+            _mapper                = mapper;
             _fraudEngine           = fraudEngine;
+            _fraudCaseFactory      = fraudCaseFactory;
             _httpContextAccessor   = httpContextAccessor;
-
         }
 
-        public async Task<TransactionResponseDto> CreateTransactionAsync(CreateTransactionDto dto, CancellationToken ct = default)
+        public async Task<TransactionResponseDto> CreateTransactionAsync(CreateTransactionDto dto,CancellationToken ct = default)
         {
-            await using var dbTransaction = await _transationsRepository.BeginTransactionAsync(ct);
+            await using var dbTransaction =
+                await _transationsRepository.BeginTransactionAsync(ct);
+
             var currentUserId = GetCurrentUserId();
 
             try
             {
-                var fromCard = await _cardRepository.GetCardForUpdateAsync(dto.FromCardId, ct)
+                var fromCard = await _cardRepository
+                    .GetCardForUpdateAsync(dto.FromCardId, ct)
                     ?? throw new CardNotFoundException(dto.FromCardId);
 
-                var toCard = await _cardRepository.GetCardForUpdateAsync(dto.ToCardId, ct)
+                var toCard = await _cardRepository
+                    .GetCardForUpdateAsync(dto.ToCardId, ct)
                     ?? throw new CardNotFoundException(dto.ToCardId);
 
                 if (fromCard.UserId != currentUserId)
-                    throw new Core.Exceptions.UnauthorizedAccessException();
+                    throw new Fraud.Core.Exceptions.UnauthorizedAccessException();
 
-                var validationResult = await _createValidator.ValidateAsync(dto, ct);
+                var validationResult =
+                    await _createValidator.ValidateAsync(dto, ct);
+
                 if (!validationResult.IsValid)
-                    throw new Fraud.Core.Exceptions.ValidationException(validationResult.Errors.Select(e => e.ErrorMessage));
+                    throw new Fraud.Core.Exceptions.ValidationException(
+                        validationResult.Errors.Select(e => e.ErrorMessage));
 
                 var transaction = new Transaction
                 {
-
                     FromCardId = fromCard.Id,
+                    FromCard = fromCard,           // in-memory fixup: fraud engine üçün, əlavə query yaratmır
                     ToCardId = toCard.Id,
+                    ToCard = toCard,                // in-memory fixup
                     Amount = dto.Amount,
                     Type = dto.Type,
                     Status = TransactionStatus.Pending,
                     IsSelfTransfer = fromCard.UserId == toCard.UserId,
                 };
 
-                var evaluation = await _fraudEngine.EvaluateAsync(transaction, ct);
+                var evaluation =
+                    await _fraudEngine.EvaluateAsync(transaction, ct);
 
                 transaction.RiskScore = evaluation.RiskScore;
+                transaction.RiskLevel = evaluation.Severity;
+                transaction.FraudEvaluatedAt = DateTime.UtcNow;
 
                 if (evaluation.Approved)
                 {
@@ -91,23 +106,22 @@ namespace Fraud.Service.Services
 
                     transaction.Status = TransactionStatus.Approved;
                     transaction.CompletedAt = DateTime.UtcNow;
-
-                    // Future engine hook: evaluation.FraudCaseReason would be used here
-                    // to create/attach a FraudCase even on an approved-but-suspicious
-                    // transaction. No FraudCase creation happens today.
                 }
                 else
                 {
-                    transaction.Status = evaluation.FailureReason is not null
-                        ? TransactionStatus.Rejected
-                        : TransactionStatus.Blocked;
+                    transaction.Status = TransactionStatus.Blocked;
                     transaction.FailureReason = evaluation.FailureReason;
-                    // Balances intentionally untouched — only Approved transactions
-                    // affect balances, per requirement #8.
+
+                    if (evaluation.RequiresFraudCase)
+                    {
+                        var fraudCase = _fraudCaseFactory.Create(evaluation, transaction);
+                        transaction.FraudCase = fraudCase;
+                    }
                 }
 
                 await _transationsRepository.AddAsync(transaction, ct);
                 await _transationsRepository.SaveChangesAsync(ct);
+
                 await dbTransaction.CommitAsync(ct);
 
                 return _mapper.Map<TransactionResponseDto>(transaction);

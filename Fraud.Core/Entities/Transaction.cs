@@ -25,6 +25,9 @@ namespace Fraud.Core.Entities
         public bool IsSelfTransfer { get; set; }
 
         public decimal? RiskScore { get; set; }
+        public FraudSeverity? RiskLevel { get; set; }
+
+        public DateTime? FraudEvaluatedAt { get; set; }
 
         public string? FailureReason { get; set; }
 
